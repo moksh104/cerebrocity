@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-const API_URL = process.env.BACK_URL;
+const API_URL = "https://cerebrocity.onrender.com/api/auth";
 
 interface User {
     id: number;

@@ -4,9 +4,8 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "start": "node src/index.js",
-        "dev": "nodemon src/index.js",
-        "build": "npm run clean && babel src --out-dir dist --copy-files"
+        "start": "node index.js",
+        "dev": "nodemon index.js"
     },
     "dependencies": {
         "bcryptjs": "^2.4.3",
