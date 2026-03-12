@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile } from "firebase/auth";
-import { auth } from "../firebase";
+
+const API_URL = "http://localhost:3001/api/auth";
 
 interface User {
-    id: string;
+    id: number;
     username: string;
     email: string;
     xp: number;
@@ -29,71 +29,66 @@ export const useAuth = () => {
     return ctx;
 };
 
-// Helper to format firebase user to our app's user structure
-const formatUser = (firebaseUser: any): User => {
-    return {
-        id: firebaseUser.uid,
-        username: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Commander",
-        email: firebaseUser.email || "",
-        xp: 150, // Mock stats
-        level: 2,
-        buildings_count: 5,
-        streak_days: 3,
-        created_at: firebaseUser.metadata.creationTime || new Date().toISOString()
-    };
-};
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // Auto-fetch user on mount if token exists
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-            if (firebaseUser) {
-                setUser(formatUser(firebaseUser));
-            } else {
-                setUser(null);
-            }
+        const token = localStorage.getItem("cerebrocity_token");
+        if (token) {
+            fetch(`${API_URL}/me`, {
+                headers: { Authorization: `Bearer ${token}` },
+            })
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.user) setUser(data.user);
+                    else localStorage.removeItem("cerebrocity_token");
+                })
+                .catch(() => localStorage.removeItem("cerebrocity_token"))
+                .finally(() => setLoading(false));
+        } else {
             setLoading(false);
-        });
-
-        return () => unsubscribe();
+        }
     }, []);
 
     const signup = async (username: string, email: string, password: string) => {
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            // Update display name for the new user
-            await updateProfile(userCredential.user, { displayName: username });
-            
-            setUser(formatUser({ ...userCredential.user, displayName: username }));
-            console.log("Account created");
+            const res = await fetch(`${API_URL}/signup`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, email, password }),
+            });
+            const data = await res.json();
+            if (!res.ok) return { success: false, error: data.error };
+            localStorage.setItem("cerebrocity_token", data.token);
+            setUser(data.user);
             return { success: true };
-        } catch (error: any) {
-            console.log(error.message);
-            return { success: false, error: error.message };
+        } catch {
+            return { success: false, error: "Cannot connect to server. Is the backend running?" };
         }
     };
 
     const login = async (email: string, password: string) => {
         try {
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            setUser(formatUser(userCredential.user));
-            console.log("Login success", userCredential.user);
+            const res = await fetch(`${API_URL}/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
+            const data = await res.json();
+            if (!res.ok) return { success: false, error: data.error };
+            localStorage.setItem("cerebrocity_token", data.token);
+            setUser(data.user);
             return { success: true };
-        } catch (error: any) {
-            console.error(error.message);
-            return { success: false, error: error.message };
+        } catch {
+            return { success: false, error: "Cannot connect to server. Is the backend running?" };
         }
     };
 
-    const logout = async () => {
-        try {
-            await signOut(auth);
-            setUser(null);
-        } catch (error) {
-            console.error("Logout error", error);
-        }
+    const logout = () => {
+        localStorage.removeItem("cerebrocity_token");
+        setUser(null);
     };
 
     return (
