@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-const API_URL = "http://localhost:3001/api/auth";
+const API_URL = process.env.BACK_URL;
 
 interface User {
     id: number;
